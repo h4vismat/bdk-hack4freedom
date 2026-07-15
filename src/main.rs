@@ -1,4 +1,5 @@
 use anyhow::{Result, anyhow};
+use bdk_electrum::{BdkElectrumClient, electrum_client};
 use bdk_wallet::rusqlite;
 use clap::{Parser, Subcommand};
 
@@ -28,6 +29,7 @@ enum Command {
         words: usize
     },
     Address,
+    Balance,
     Descriptors,
 }
 
@@ -43,13 +45,20 @@ fn main() -> Result<()> {
 
             let recovery_phrase = match std::env::var("RECOVERY_PHRASE") {
                 Ok(mnemonic) => mnemonic,
-                Err(_) => return Err(anyhow!("MNEMONIC deve estar definido"))
+                Err(_) => return Err(anyhow!("RECOVERY_PHRASE deve estar definido"))
             };
 
             let descriptors= generate_descriptors_from_mnemonic(&recovery_phrase)?;
 
             let mut conn = rusqlite::Connection::open(DB_PATH)?;
             let mut wallet = wallet::load_wallet(&mut conn, &descriptors)?;
+
+            let client = BdkElectrumClient::new(electrum_client::Client::new(&std::env::var("ELECTRUM_URL")?)?);
+            client.populate_tx_cache(wallet.tx_graph().full_txs().map(|tx_node| tx_node.tx));
+
+            let update = client.full_scan(wallet.start_full_scan(), 50, 5, false)?;
+            wallet.apply_update(update)?;
+            wallet.persist(&mut conn)?;
 
             match other {
                 Command::Descriptors => {
@@ -63,6 +72,7 @@ fn main() -> Result<()> {
                     println!("{}", addr);
                     wallet.persist(&mut conn)?;
                 },
+                Command::Balance => println!("Balance: {}", wallet.balance().total()),
                 Command::Mnemonic { .. } => unreachable!("Command::Mnemonic definido anteriormente.")
             }
         }
