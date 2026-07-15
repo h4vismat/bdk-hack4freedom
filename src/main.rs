@@ -8,6 +8,7 @@ static DB_PATH: &'static str = "wallet.sqlite";
 
 mod descriptors;
 mod mnemonic;
+mod wallet;
 
 #[derive(Debug, Parser)]
 #[command(
@@ -48,17 +49,7 @@ fn main() -> Result<()> {
             let descriptors= generate_descriptors_from_mnemonic(&recovery_phrase)?;
 
             let mut conn = rusqlite::Connection::open(DB_PATH)?;
-            let mut wallet = match Wallet::load()
-                .descriptor(bdk_wallet::KeychainKind::External, Some(descriptors.tpub_ext.clone()))
-                .descriptor(bdk_wallet::KeychainKind::Internal, Some(descriptors.tpub_int.clone()))
-                .check_network(Network::Regtest)
-                .load_wallet(&mut conn)? 
-            {
-                Some(wallet) => wallet,
-                None => Wallet::create(descriptors.tpub_ext.clone(), descriptors.tpub_int.clone())
-                    .network(Network::Regtest)
-                    .create_wallet(&mut conn)?
-            };
+            let mut wallet = wallet::load_wallet(&mut conn, &descriptors)?;
 
             match other {
                 Command::Descriptors => {
