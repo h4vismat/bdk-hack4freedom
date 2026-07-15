@@ -72,7 +72,7 @@ fn main() -> Result<()> {
                     println!("{}", addr);
                     wallet.persist(&mut conn)?;
                 },
-                Command::Balance => println!("Balance: {}", wallet.balance().total()),
+                Command::Balance => println!("Balance: {:?}", wallet.balance()),
                 Command::Mnemonic { .. } => unreachable!("Command::Mnemonic definido anteriormente.")
             }
         }
