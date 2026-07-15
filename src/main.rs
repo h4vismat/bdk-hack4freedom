@@ -3,12 +3,13 @@ use bdk_electrum::{BdkElectrumClient, electrum_client};
 use bdk_wallet::rusqlite;
 use clap::{Parser, Subcommand};
 
-use crate::{descriptors::generate_descriptors_from_mnemonic, mnemonic::generate_mnemonic};
+use crate::{descriptors::generate_descriptors_from_mnemonic, mnemonic::generate_mnemonic, send::sign_transaction};
 
 static DB_PATH: &'static str = "wallet.sqlite";
 
 mod descriptors;
 mod mnemonic;
+mod send;
 mod wallet;
 
 #[derive(Debug, Parser)]
@@ -31,6 +32,10 @@ enum Command {
     Address,
     Balance,
     Descriptors,
+    Send {
+        address: String,
+        satoshi: u64
+    }
 }
 
 fn main() -> Result<()> {
@@ -73,6 +78,15 @@ fn main() -> Result<()> {
                     wallet.persist(&mut conn)?;
                 },
                 Command::Balance => println!("Balance: {}", wallet.balance().total()),
+                Command::Send { address, satoshi } => {
+                    let mut psbt = send::prepare_transaction(&mut wallet, address, *satoshi)?;
+                    sign_transaction(&wallet, &descriptors, &mut psbt)?;
+
+                    let tx = psbt.extract_tx()?;
+                    let txid = client.transaction_broadcast(&tx)?;
+
+                    println!("Txid: {}", txid)
+                }
                 Command::Mnemonic { .. } => unreachable!("Command::Mnemonic definido anteriormente.")
             }
         }
