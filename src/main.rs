@@ -1,7 +1,10 @@
 use anyhow::{Result, anyhow};
+use bdk_wallet::{Wallet, bitcoin::Network, rusqlite};
 use clap::{Parser, Subcommand};
 
 use crate::{descriptors::generate_descriptors_from_mnemonic, mnemonic::generate_mnemonic};
+
+static DB_PATH: &'static str = "wallet.sqlite";
 
 mod descriptors;
 mod mnemonic;
@@ -23,6 +26,7 @@ enum Command {
         #[arg(long, default_value_t = 12)]
         words: usize
     },
+    Address,
     Descriptors,
 }
 
@@ -43,12 +47,30 @@ fn main() -> Result<()> {
 
             let descriptors= generate_descriptors_from_mnemonic(&recovery_phrase)?;
 
+            let mut conn = rusqlite::Connection::open(DB_PATH)?;
+            let mut wallet = match Wallet::load()
+                .descriptor(bdk_wallet::KeychainKind::External, Some(descriptors.tpub_ext.clone()))
+                .descriptor(bdk_wallet::KeychainKind::Internal, Some(descriptors.tpub_int.clone()))
+                .check_network(Network::Regtest)
+                .load_wallet(&mut conn)? 
+            {
+                Some(wallet) => wallet,
+                None => Wallet::create(descriptors.tpub_ext.clone(), descriptors.tpub_int.clone())
+                    .network(Network::Regtest)
+                    .create_wallet(&mut conn)?
+            };
+
             match other {
                 Command::Descriptors => {
                     println!("tpub external descriptor: {}", descriptors.tpub_ext);
                     println!("tpub internal descriptor: {}", descriptors.tpub_int);
                     println!("tprv external descriptor: {}", descriptors.tpub_ext.to_string_with_secret(&descriptors.ext_keymap));
                     println!("tprv internal descriptor: {}", descriptors.tpub_int.to_string_with_secret(&descriptors.int_keymap));
+                },
+                Command::Address => { 
+                    let addr = wallet.reveal_next_address(bdk_wallet::KeychainKind::External);
+                    println!("{}", addr);
+                    wallet.persist(&mut conn)?;
                 },
                 Command::Mnemonic { .. } => unreachable!("Command::Mnemonic definido anteriormente.")
             }
