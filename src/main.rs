@@ -77,7 +77,7 @@ fn main() -> Result<()> {
                     println!("{}", addr);
                     wallet.persist(&mut conn)?;
                 },
-                Command::Balance => println!("Balance: {}", wallet.balance().total()),
+                Command::Balance => println!("Balance: {:?}", wallet.balance()),
                 Command::Send { address, satoshi } => {
                     let mut psbt = send::prepare_transaction(&mut wallet, address, *satoshi)?;
                     sign_transaction(&wallet, &descriptors, &mut psbt)?;
