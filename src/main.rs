@@ -42,7 +42,7 @@ fn main() -> Result<()> {
 
             let recovery_phrase = match std::env::var("RECOVERY_PHRASE") {
                 Ok(mnemonic) => mnemonic,
-                Err(_) => return Err(anyhow!("MNEMONIC deve estar definido"))
+                Err(_) => return Err(anyhow!("RECOVERY_PHRASE deve estar definido"))
             };
 
             let descriptors= generate_descriptors_from_mnemonic(&recovery_phrase)?;
