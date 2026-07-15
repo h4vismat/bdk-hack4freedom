@@ -15,6 +15,11 @@ pub fn prepare_transaction(wallet: &mut bdk_wallet::Wallet, address: &str, satos
         .add_recipient(address.script_pubkey(), Amount::from_sat(satoshi));
 
     let psbt = builder.finish()?;
+
+    println!("Inputs: {}", psbt.inputs.len());
+    println!("Outputs: {}", psbt.outputs.len());
+    println!("Fee: {}", psbt.fee()?);
+
     Ok(psbt)
 }
 
