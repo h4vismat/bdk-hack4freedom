@@ -1,8 +1,9 @@
-use anyhow::Result;
-use clap::{Parser, Subcommand, ValueEnum};
+use anyhow::{Result, anyhow};
+use clap::{Parser, Subcommand};
 
-use crate::mnemonic::generate_mnemonic;
+use crate::{descriptors::generate_descriptors_from_mnemonic, mnemonic::generate_mnemonic};
 
+mod descriptors;
 mod mnemonic;
 
 #[derive(Debug, Parser)]
@@ -22,6 +23,7 @@ enum Command {
         #[arg(long, default_value_t = 12)]
         words: usize
     },
+    Descriptors,
 }
 
 fn main() -> Result<()> {
@@ -29,7 +31,29 @@ fn main() -> Result<()> {
 
     match cli.command {
         Command::Mnemonic { words } => {
-            generate_mnemonic(words)
+            generate_mnemonic(words)?;
+        },
+        ref other => {
+            dotenvy::dotenv()?;
+
+            let recovery_phrase = match std::env::var("RECOVERY_PHRASE") {
+                Ok(mnemonic) => mnemonic,
+                Err(_) => return Err(anyhow!("MNEMONIC deve estar definido"))
+            };
+
+            let descriptors= generate_descriptors_from_mnemonic(&recovery_phrase)?;
+
+            match other {
+                Command::Descriptors => {
+                    println!("tpub external descriptor: {}", descriptors.tpub_ext);
+                    println!("tpub internal descriptor: {}", descriptors.tpub_int);
+                    println!("tprv external descriptor: {}", descriptors.tpub_ext.to_string_with_secret(&descriptors.ext_keymap));
+                    println!("tprv internal descriptor: {}", descriptors.tpub_int.to_string_with_secret(&descriptors.int_keymap));
+                },
+                Command::Mnemonic { .. } => unreachable!("Command::Mnemonic definido anteriormente.")
+            }
         }
     }
+
+    Ok(())
 }
