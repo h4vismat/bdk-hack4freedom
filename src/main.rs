@@ -1,5 +1,5 @@
 use anyhow::{Result, anyhow};
-use bdk_wallet::{Wallet, bitcoin::Network, rusqlite};
+use bdk_wallet::rusqlite;
 use clap::{Parser, Subcommand};
 
 use crate::{descriptors::generate_descriptors_from_mnemonic, mnemonic::generate_mnemonic};
